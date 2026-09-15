@@ -6,7 +6,7 @@ import app
 class AppTests(unittest.TestCase):
     def draft(self):
         return {'name':'Rolka scroll do pilota LG MR23GN', 'price':'18', 'stock':1000, 'category':'123', 'local_id':'local',
-                'sections':[{'title':'Opis <test>', 'text':'Jedna rolka <script>alert(1)</script>'}], 'product_parameters':[], 'offer_parameters':[]}
+                'shipping_location':{'countryCode':'PL','province':'MAZOWIECKIE','postCode':'00-001','city':'Miasto testowe'}, 'sections':[{'title':'Opis <test>', 'text':'Jedna rolka <script>alert(1)</script>'}], 'product_parameters':[], 'offer_parameters':[]}
     def template(self):
         return {'delivery':{'shippingRates':{'id':'rate'},'handlingTime':'P7D'}, 'afterSalesServices':{'returnPolicy':{'id':'return'}},
                 'productSet':[{'product':{'id':'WRONG-OLD-ROLLER'}}], 'images':['OLD']}
@@ -16,6 +16,24 @@ class AppTests(unittest.TestCase):
         self.assertEqual(p['stock']['available'],1000); self.assertEqual(p['sellingMode']['price']['amount'],'18.00')
         self.assertNotIn('WRONG-OLD-ROLLER',json.dumps(p)); self.assertNotIn('OLD',json.dumps(p))
         self.assertEqual(p['afterSalesServices']['returnPolicy']['id'],'return')
+    def test_location_overrides_template_and_allows_offer_exception(self):
+        d=self.draft(); template=self.template()
+        template['location']={'city':'Warszawa','province':'MAZOWIECKIE','postCode':'00-001','countryCode':'PL'}
+        self.assertEqual(app.build_payload(d,template,['photo'])['location'],d['shipping_location'])
+        d['shipping_location']={'city':'Katowice','province':'SLASKIE','postCode':'40-001','countryCode':'PL'}
+        self.assertEqual(app.build_payload(d,template,['photo'])['location'],d['shipping_location'])
+        d['shipping_location']['postCode']=''
+        with self.assertRaises(ValueError): app.build_payload(d,template,['photo'])
+    def test_local_shipping_default_and_missing_location(self):
+        d=self.draft(); location=d.pop('shipping_location')
+        with patch.object(app,'read',return_value={}), self.assertRaises(ValueError):
+            app.build_payload(d,self.template(),['photo'])
+        with patch.object(app,'save') as save:
+            result=object.__new__(app.Handler).action('/shipping-default',{'shipping_location':location})
+            save.assert_called_once_with('shipping-default',location)
+            self.assertEqual(result['location'],location)
+        with patch.object(app,'read',return_value=location):
+            self.assertEqual(app.build_payload(d,self.template(),['photo'])['location'],location)
     def test_escape_description(self):
         p=app.build_payload(self.draft(),self.template(),['photo'])
         text=p['description']['sections'][0]['items'][1]['content']

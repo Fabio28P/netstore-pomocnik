@@ -144,6 +144,17 @@ def validate(d):
     except (ValueError, InvalidOperation): raise ValueError('Podaj dodatnią cenę (maks. 2 miejsca po przecinku) i całkowitą liczbę sztuk.')
     return name, format(price, '.2f'), stock
 
+LOCATION_FIELDS = ('countryCode', 'province', 'postCode', 'city')
+
+def shipping_location(d):
+    source = d.get('shipping_location', read('shipping-default', {}))
+    if not isinstance(source, dict): raise ValueError('Uzupełnij miejsce wysyłki.')
+    location = {key: str(source.get(key, '')).strip() for key in LOCATION_FIELDS}
+    if not all(location.values()): raise ValueError('Uzupełnij kraj, województwo, kod pocztowy i miejscowość wysyłki.')
+    if location['countryCode'] != 'PL' or not re.fullmatch(r'\d{2}-\d{3}', location['postCode']):
+        raise ValueError('Wybierz Polskę i podaj kod pocztowy w formacie XX-XXX.')
+    return location
+
 def build_payload(d, template, images):
     name, price, stock = validate(d)
     if not images: raise ValueError('Dodaj zdjęcie produktu.')
@@ -160,8 +171,9 @@ def build_payload(d, template, images):
         'stock': {'available': stock, 'unit': 'UNIT'}, 'publication': {'status': 'INACTIVE'},
         'external': {'id': d['local_id']}}
     # Only seller settings, never the source product, its images or parameters.
-    for key in ('afterSalesServices', 'location', 'payments'):
+    for key in ('afterSalesServices', 'payments'):
         if template.get(key): payload[key] = template[key]
+    payload['location'] = shipping_location(d)
     rates = template.get('delivery', {}).get('shippingRates')
     if not rates or not rates.get('id'): raise ValueError('Najpierw pobierz cennik dostawy z oferty wzorcowej.')
     payload['delivery'] = {'shippingRates': {'id': rates['id']}, 'handlingTime': 'P1D'}
@@ -189,7 +201,7 @@ class Handler(BaseHTTPRequestHandler):
                 c = read('config', {})
                 return self.send({'csrf': CSRF, 'environment': env(), 'client_id': c.get('client_id', ''),
                     'has_secret': bool(c.get('client_secret')), 'ai': {'provider': ai_config().get('provider','openai'), 'has_key': bool(ai_config().get('api_key')), 'model': ai_config().get('model', 'gpt-4.1-mini'), 'recommended_profile':ai_writer.DEFAULT_PROFILE, 'profile': ai_config().get('profile', ai_writer.DEFAULT_PROFILE)}, 'connected': bool(read('tokens-' + env())),
-                    'draft': read('draft', None), 'saved_offer': read('offer-' + env(), {}), 'callback': CALLBACK})
+                    'shipping_default': read('shipping-default', {}), 'draft': read('draft', None), 'saved_offer': read('offer-' + env(), {}), 'callback': CALLBACK})
             if p.path == '/allegro/callback':
                 q = parse_qs(p.query)
                 state = q.get('state', [''])[0]
@@ -212,6 +224,10 @@ class Handler(BaseHTTPRequestHandler):
         except (ValueError, KeyError, TypeError) as e: self.send({'error': str(e)}, 400)
         except Exception: self.send({'error': 'Nie udało się wykonać operacji. Sprawdź dane i uruchom program ponownie.'}, 500)
     def action(self, path, d):
+        if path == '/shipping-default':
+            location = shipping_location(d)
+            save('shipping-default', location)
+            return {'location': location, 'message': 'Zapisano domyślne miejsce wysyłki na tym komputerze.'}
         if path == '/ai-config':
             old = read('ai-config', {})
             provider=d.get('provider','openai')
@@ -297,6 +313,7 @@ class Handler(BaseHTTPRequestHandler):
             original_hash=hashlib.sha256(json.dumps(d,sort_keys=True).encode()).hexdigest()
             draft = json.loads(json.dumps(d))
             validate(draft)
+            shipping_location(draft)
             if saved.get('pending'): raise ValueError('Poprzedni zapis ma nieznany wynik. Kliknij „Sprawdź status” przed kolejnym zapisem.')
             if saved.get('id'):
                 current = api('/sale/product-offers/' + saved['id'])

@@ -166,3 +166,9 @@ Bez analizy zdjęć program rozkłada je równomiernie na sekcje. Nie deklaruje,
 ### Weryfikacja
 
 24 testy Pythona oraz testy formatowania komunikatów (`node test_messages.cjs`). Testy obejmują przypisanie czterech zdjęć bez pominięć i powtórzeń, nieprawidłowe indeksy, nagłówki, strukturę żądań AI oraz zachowanie nieznanych ostrzeżeń. Wywołania AI są symulowane. Nie oceniono nowego opisu wygenerowanego na żywo na koncie użytkownika.
+
+### Miejsce wysyłki
+
+W sekcji „Dostawa i warunki sprzedaży” wpisz miejsce wysyłki i kliknij „Zapisz jako domyślne miejsce wysyłki”. Dane są przechowywane lokalnie, poza repozytorium, i przekazywane do Allegro przy zapisie oferty. Nowe produkty korzystają z lokalnych ustawień; każdy szkic może mieć własne miejsce wysyłki. Wzór nie nadpisuje lokalizacji. Bez skonfigurowanej lokalizacji program prosi o jej uzupełnienie, zamiast kopiować ją z innej oferty.
+
+Aktualizacja programu nie zmienia już zapisanych ofert w Allegro. Szkic trzeba ponownie zapisać; aktywną ofertę popraw bezpośrednio w Allegro.
