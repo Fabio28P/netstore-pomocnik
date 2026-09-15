@@ -1,6 +1,6 @@
 # NetStore Pomocnik
 
-Lokalna aplikacja do przygotowania i wystawienia oferty na własnym koncie Allegro. Wersja 1.3 zawiera panel w języku polskim, logowanie OAuth, edytor zdjęć i sekcji opisu, podgląd, zapis szkicu i publikację po zatwierdzeniu.
+Lokalna aplikacja do przygotowania i wystawienia oferty na własnym koncie Allegro. Wersja 1.4 zawiera panel w języku polskim, logowanie OAuth, edytor zdjęć i sekcji opisu, podgląd, zapis szkicu i publikację po zatwierdzeniu.
 
 ## Uruchomienie na Windows
 
@@ -29,7 +29,7 @@ Uprawnienia:
 User-Agent wysyłany przez program:
 
 ```text
-NetStore-Pomocnik/1.3 (+https://github.com/Fabio28P/netstore-pomocnik)
+NetStore-Pomocnik/1.4 (+https://github.com/Fabio28P/netstore-pomocnik)
 ```
 
 Sandbox wymaga osobnego konta i osobnej aplikacji zarejestrowanej w środowisku testowym. Klucze produkcyjne nie działają w Sandbox.
@@ -41,13 +41,13 @@ Panel startuje z edytowalnym opisem rolki do LG Magic MR21/MR22/MR23 zgodnie z d
 1. Dodaj zdjęcia PNG/JPG. Pierwsze jest zdjęciem głównym. Zmień kolejność strzałkami, jeśli trzeba.
 2. Przejrzyj i popraw sekcje opisu. Podgląd jest przybliżeniem układu, ostateczne renderowanie należy do Allegro.
 3. Kliknij **Pobierz ustawienia ze wzoru**. Domyślna oferta wzorcowa: `18866219051`. Musi należeć do autoryzowanego konta. Kopiowane są cennik dostawy, warunki posprzedażowe, lokalizacja i ustawienia płatności; czas wysyłki ustawiany jest na 1 dzień. Produkt, jego parametry i zdjęcia nie są kopiowane.
-4. Kliknij **Wczytaj pola** i uzupełnij parametry kategorii. Wybierz istniejący produkt tylko przy dokładnej zgodności; bez wyboru aplikacja wysyła dane nowego produktu wraz z ofertą.
+4. Wyszukaj kategorię po nazwie lub wybierz ją z działów i uzupełnij wczytane parametry. Wybierz istniejący produkt tylko przy dokładnej zgodności; bez wyboru aplikacja wysyła dane nowego produktu wraz z ofertą.
 5. Wybierz producenta odpowiedzialnego z danych Twojego konta i uzupełnij informacje o bezpieczeństwie, jeżeli wymagane. Nie przypisuj LG jako producenta zamiennika tylko dlatego, że pasuje do pilota LG.
 6. **Zapisz na komputerze** zachowuje pracę lokalnie, bez wysyłania do Allegro.
 7. **Zapisz szkic w Allegro** wysyła ofertę ze statusem `INACTIVE`. Allegro może zwrócić brakujące parametry lub inne błędy — popraw je przed ponownym zapisem.
 8. Po zapisie i kontroli treści zaznacz potwierdzenie, kliknij **Opublikuj ofertę**, a następnie **Sprawdź status**. Dopiero status `ACTIVE` potwierdza publikację.
 
-## Zakres i ograniczenia wersji 1.3
+## Zakres i ograniczenia wersji 1.4
 
 - To działający kod lokalnej aplikacji, nie usługa hostowana i nie plik EXE. Wymaga Pythona.
 - Foldery produktów mają osobne szkice i identyfikatory ofert. Pracujesz nad jednym wybranym produktem naraz; bez edycji aktywnych ofert i bez automatycznej publikacji całej kolejki.
@@ -172,3 +172,16 @@ Bez analizy zdjęć program rozkłada je równomiernie na sekcje. Nie deklaruje,
 W sekcji „Dostawa i warunki sprzedaży” wpisz miejsce wysyłki i kliknij „Zapisz jako domyślne miejsce wysyłki”. Dane są przechowywane lokalnie, poza repozytorium, i przekazywane do Allegro przy zapisie oferty. Nowe produkty korzystają z lokalnych ustawień; każdy szkic może mieć własne miejsce wysyłki. Wzór nie nadpisuje lokalizacji. Bez skonfigurowanej lokalizacji program prosi o jej uzupełnienie, zamiast kopiować ją z innej oferty.
 
 Aktualizacja programu nie zmienia już zapisanych ofert w Allegro. Szkic trzeba ponownie zapisać; aktywną ofertę popraw bezpośrednio w Allegro.
+
+### Kategorie po nazwie i kolejka folderów (1.4)
+
+Kategorię wybierzesz, wpisując nazwę produktu lub przeglądając działy Allegro. Po wyborze końcowej kategorii program wczyta jej wymagane parametry. Zmiana kategorii usuwa parametry poprzedniej kategorii i wybór produktu katalogowego. Wzór dostawy nie nadpisuje już wybranej kategorii.
+
+1. Wybierz folder z produktami i kliknij „Sprawdź foldery na Allegro”.
+2. Znane oferty są rozpoznawane po identyfikatorze oferty lub identyfikatorze produktu w programie, nigdy po samej nazwie. Starsze oferty można raz przypisać z listy swoich ofert. Folder bez powiązania nie oznacza automatycznie brakującej oferty — sprawdź go i zaznacz „To nowy produkt”.
+3. Włącz automatyczne przygotowanie i uruchom kolejkę. Program ponownie sprawdzi Allegro, pominie oferty aktywne, szkice, zakończone i niepewne dopasowania. Dla zaznaczonych nowych produktów bez lokalnego opisu wygeneruje i zapisze opisy ze zdjęciami. Potrzebne są fakty zapisane wcześniej w programie lub w opis.txt / produkt.txt.
+4. Otwórz gotowy szkic, sprawdź opis i pytania AI, wybierz kategorię oraz uzupełnij brakujące parametry, cenę, ilość i dane producenta. Zapisz szkic w Allegro, sprawdź uwagi i potwierdź publikację istniejącym przyciskiem.
+
+Przełącznik wyłącza kolejne generowania; bieżące zapytanie może jeszcze zakończyć się i zapisać wynik. Kolejka działa przy otwartym panelu, po ręcznym wybraniu folderu — nie obserwuje stale dysku. Zamknięcie panelu nie publikuje niczego. Gotowe lokalne szkice przetrwają ponowne uruchomienie; po przeniesieniu lub zmianie nazwy folderu należy ponownie sprawdzić powiązanie. Błąd sieci lub AI zatrzymuje partię. Generowanie podlega limitom i opłatom wybranego dostawcy. Nie kopiujemy faktów między produktami.
+
+Testy kolejki sprawdzają stronicowanie listy ofert, identyfikatory, niejednoznaczność, błędy sieci oraz rozdzielenie środowisk. Próba utworzenia nowej oferty z ręcznie powiązanego folderu jest blokowana.

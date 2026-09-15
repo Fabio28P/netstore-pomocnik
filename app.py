@@ -1,6 +1,7 @@
 """NetStore Pomocnik — lokalny panel Allegro, Python 3.10+, bez zależności."""
 import ai_writer
 import parameters
+import workflow
 import base64, hashlib, html, json, os, re, secrets, time, webbrowser
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -16,7 +17,7 @@ try: DATA.chmod(0o700)
 except OSError: pass
 ORIGIN = 'http://localhost:8000'
 CALLBACK = ORIGIN + '/allegro/callback'
-UA = 'NetStore-Pomocnik/1.3 (+https://github.com/Fabio28P/netstore-pomocnik)'
+UA = 'NetStore-Pomocnik/1.4 (+https://github.com/Fabio28P/netstore-pomocnik)'
 CSRF = secrets.token_urlsafe(32)
 OAUTH = {}
 SCOPES = 'allegro:api:sale:offers:read allegro:api:sale:offers:write allegro:api:sale:settings:read'
@@ -196,6 +197,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if p.path == '/': return self.send((ROOT / 'index.html').read_text('utf-8'), mime='text/html')
             if p.path == '/messages.js': return self.send((ROOT / 'messages.js').read_text('utf-8'), mime='text/javascript')
+            if p.path == '/workflow.js': return self.send((ROOT / 'workflow.js').read_text('utf-8'), mime='text/javascript')
             if p.path == '/app.js': return self.send((ROOT / 'app.js').read_text('utf-8'), mime='text/javascript')
             if p.path == '/state':
                 c = read('config', {})
@@ -224,6 +226,27 @@ class Handler(BaseHTTPRequestHandler):
         except (ValueError, KeyError, TypeError) as e: self.send({'error': str(e)}, 400)
         except Exception: self.send({'error': 'Nie udało się wykonać operacji. Sprawdź dane i uruchom program ponownie.'}, 500)
     def action(self, path, d):
+        if path == '/categories-search':
+            phrase=str(d.get('name','')).strip()
+            if not 2<=len(phrase)<=150:raise ValueError('Wpisz nazwę produktu (2–150 znaków).')
+            return api('/sale/matching-categories?'+urlencode({'name':phrase}))
+        if path == '/categories-list':
+            parent=str(d.get('parent',''))
+            if parent and not parent.isdigit():raise ValueError('Nieprawidłowa kategoria.')
+            return api('/sale/categories'+('?' + urlencode({'parent.id':parent}) if parent else ''))
+        if path == '/category':
+            category=str(d.get('id',''))
+            if not category.isdigit():raise ValueError('Wybierz kategorię.')
+            return api('/sale/categories/'+category)
+        if path == '/queue-scan':
+            return workflow.scan(d.get('folders',[]),api,read,env())
+        if path == '/queue-link':
+            folder=d.get('folder');workflow.key(folder)
+            identifier=offer_id(d.get('id',''))
+            offers=workflow.inventory(api)
+            if not any(o['id']==identifier for o in offers):raise ValueError('Nie znaleziono tej oferty na połączonym koncie.')
+            links=read('queue-links-'+env(),{});links[folder]=identifier;save('queue-links-'+env(),links)
+            return {'message':'Powiązano folder z istniejącą ofertą. Kolejka go pominie.'}
         if path == '/shipping-default':
             location = shipping_location(d)
             save('shipping-default', location)
@@ -284,7 +307,7 @@ class Handler(BaseHTTPRequestHandler):
             save('draft', d); return {'message': 'Zapisano szkic na komputerze.'}
         if path == '/template':
             source = api('/sale/product-offers/' + offer_id(d['reference']))
-            template = {k: source[k] for k in ('delivery','afterSalesServices','location','payments') if source.get(k)}
+            template = {k: source[k] for k in ('delivery','afterSalesServices','payments') if source.get(k)}
             template['source_id'] = source['id']; save('template-' + env(), template)
             return {'template': template, 'category': source.get('category', {}).get('id'), 'name': source.get('name')}
         if path == '/parameters':
@@ -310,6 +333,9 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError('Treść zmieniła się od zapisu. Najpierw ponownie zapisz szkic w Allegro.')
                 result = api('/sale/product-offers/' + saved['id'], 'PATCH', {'publication': {'status': 'ACTIVE'}})
                 return {'id': saved['id'], 'publication': result.get('publication'), 'message': 'Zlecono publikację. Kliknij „Sprawdź status”, aby potwierdzić wynik.'}
+            linked=read('queue-links-'+env(),{}).get(d.get('folder'))
+            if linked and saved.get('id')!=linked:
+                raise ValueError('Ten folder jest powiązany z istniejącą ofertą. Edytuj ją w Allegro; nie utworzono duplikatu.')
             original_hash=hashlib.sha256(json.dumps(d,sort_keys=True).encode()).hexdigest()
             draft = json.loads(json.dumps(d))
             validate(draft)

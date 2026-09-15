@@ -34,6 +34,18 @@ class AppTests(unittest.TestCase):
             self.assertEqual(result['location'],location)
         with patch.object(app,'read',return_value=location):
             self.assertEqual(app.build_payload(d,self.template(),['photo'])['location'],location)
+    def test_linked_folder_cannot_create_duplicate(self):
+        d=self.draft();d['folder']='products/test'
+        def read(name,default=None):
+            return {'products/test':'123456'} if name.startswith('queue-links-') else default
+        with patch.object(app,'read',side_effect=read), patch.object(app,'api') as api:
+            with self.assertRaisesRegex(ValueError,'powiązany'):
+                object.__new__(app.Handler).action('/draft',d)
+            api.assert_not_called()
+    def test_category_search_encodes_name(self):
+        with patch.object(app,'api',return_value={'matchingCategories':[]}) as api:
+            object.__new__(app.Handler).action('/categories-search',{'name':'rolka & pilot'})
+            self.assertEqual(api.call_args.args[0],'/sale/matching-categories?name=rolka+%26+pilot')
     def test_escape_description(self):
         p=app.build_payload(self.draft(),self.template(),['photo'])
         text=p['description']['sections'][0]['items'][1]['content']
