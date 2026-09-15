@@ -1,0 +1,31 @@
+STYL NETSTORE — PRZYKŁADY REDAKCYJNE, NIE ŹRÓDŁO DANYCH BIEŻĄCEGO PRODUKTU
+
+Cel: rozbudowany, przyjemny w czytaniu opis sprzedażowy, a nie trzy suche akapity katalogowe. Wstęp odnosi się do konkretnego problemu klienta. Dalej przedstaw produkt, wyjaśnij po co jest, rozwiń prawdziwe korzyści i pokaż najważniejsze dane. Każda sekcja wnosi coś nowego.
+
+Zwykle 280–420 słów, 5–7 sekcji. Dopuszczalny krótszy opis, jeśli brakuje danych; wtedy zadaj konkretne pytania w questions. Nie osiągaj długości powtórzeniami. Nie wymyślaj właściwości materiału, gwarancji naprawy, oszczędności w złotych ani czasu montażu. Brakujących faktów nie zastępuj hasłami.
+
+Sekcje dobierz do produktu, nie używaj automatycznie wszystkich:
+- Wstęp: problem klienta + jakie rozwiązanie sprzedajemy, 2–3 krótkie akapity.
+- Najważniejsze zalety: 3–5 punktów; pogrub nazwę korzyści i dodaj konkretny sens dla kupującego.
+- Zastosowanie / zgodne modele: wyłącznie potwierdzone dane.
+- Montaż lub sposób użycia: podane czynności, bez domysłów.
+- Ważne informacje: ograniczenia, dopasowanie, rzeczy poza zestawem.
+- Specyfikacja: krótkie parametry zamiast ponownego opowiadania zalet.
+- Kupujesz: jednoznaczna zawartość zestawu, spokojne zakończenie.
+
+Dobre brzmienie — przykład A, rolka (nie kopiuj modelu do nowej oferty):
+Wstęp: „Twój pilot LG przestał prawidłowo przewijać? Jeśli przyczyną jest uszkodzona rolka, możesz wymienić sam element mechanizmu. Oferowany zamiennik jest przeznaczony do naprawy wskazanych modeli pilota — przed zakupem porównaj oznaczenie i kształt części.”
+Zalety:
+- **Wymiana samej części** — rozwiązanie dla pilota z uszkodzeniem rolki, gdy pozostałe elementy są sprawne.
+- **Jedna część w zestawie** — kupujesz rolkę, a nie cały pilot widoczny na zdjęciu.
+Ważna informacja: „Ze względu na różne serie produkcyjne trzpień może wymagać **minimalnego dopasowania — delikatnego spiłowania**.” (Tylko jeśli dotyczy tego produktu.)
+
+Dobre brzmienie — przykład B, narzędzie do dysz (odrębny produkt):
+Wstęp: „Zaschnięta końcówka utrudnia dokończenie pracy? Narzędzie do udrażniania dysz służy do usuwania zalegającego materiału z końcówek silikonów, klejów i mas. Pozwala zająć się zatkaną dyszą przed sięgnięciem po kolejny wkład.”
+Zalety:
+- **Uchwyt typu T** — pozwala chwycić narzędzie podczas obracania.
+- **Spiralna końcówka** — przeznaczona do pracy wewnątrz dyszy.
+Specyfikacja: materiał PETG, kolor zgodny z danymi produktu, 1 sztuka, druk 3D. Te cechy pochodzą z przykładu i NIE dotyczą automatycznie aktualnego produktu.
+
+Format: nagłówki w polu title bez # i bez Markdown. W text akapity, **pogrubienia** krótkich ważnych fraz, listy „- ”. Można użyć ⭐, ✔ lub ⚠ przy 1–2 sekcjach, jeśli pasuje, bez dekorowania każdego zdania. Nie wypisuj „Zdjęcie części”, linków ani numerów zdjęć w tekście klienta.
+Zdjęcia mają służyć do wyboru ilustracji pasującej do sekcji, nie do zgadywania materiału, wymiarów i kompatybilności. Zdjęcia i przykłady nie upoważniają do kopiowania cudzych marek lub oznaczeń.

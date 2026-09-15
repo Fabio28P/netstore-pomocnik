@@ -1,6 +1,6 @@
 # NetStore Pomocnik
 
-Lokalna aplikacja do przygotowania i wystawienia oferty na własnym koncie Allegro. Wersja 1.2 zawiera panel w języku polskim, logowanie OAuth, edytor zdjęć i sekcji opisu, podgląd, zapis szkicu i publikację po zatwierdzeniu.
+Lokalna aplikacja do przygotowania i wystawienia oferty na własnym koncie Allegro. Wersja 1.3 zawiera panel w języku polskim, logowanie OAuth, edytor zdjęć i sekcji opisu, podgląd, zapis szkicu i publikację po zatwierdzeniu.
 
 ## Uruchomienie na Windows
 
@@ -29,7 +29,7 @@ Uprawnienia:
 User-Agent wysyłany przez program:
 
 ```text
-NetStore-Pomocnik/1.2 (+https://github.com/Fabio28P/netstore-pomocnik)
+NetStore-Pomocnik/1.3 (+https://github.com/Fabio28P/netstore-pomocnik)
 ```
 
 Sandbox wymaga osobnego konta i osobnej aplikacji zarejestrowanej w środowisku testowym. Klucze produkcyjne nie działają w Sandbox.
@@ -47,11 +47,11 @@ Panel startuje z edytowalnym opisem rolki do LG Magic MR21/MR22/MR23 zgodnie z d
 7. **Zapisz szkic w Allegro** wysyła ofertę ze statusem `INACTIVE`. Allegro może zwrócić brakujące parametry lub inne błędy — popraw je przed ponownym zapisem.
 8. Po zapisie i kontroli treści zaznacz potwierdzenie, kliknij **Opublikuj ofertę**, a następnie **Sprawdź status**. Dopiero status `ACTIVE` potwierdza publikację.
 
-## Zakres i ograniczenia wersji 1.2
+## Zakres i ograniczenia wersji 1.3
 
 - To działający kod lokalnej aplikacji, nie usługa hostowana i nie plik EXE. Wymaga Pythona.
 - Foldery produktów mają osobne szkice i identyfikatory ofert. Pracujesz nad jednym wybranym produktem naraz; bez edycji aktywnych ofert i bez automatycznej publikacji całej kolejki.
-- Opisy można generować przez OpenAI API na podstawie wpisanych faktów i zapisanego profilu sklepu. Szablon i edycja ręczna nadal działają bez klucza AI. Ta wersja nie analizuje ani nie generuje zdjęć.
+- Opisy można generować przez OpenAI API na podstawie wpisanych faktów i zapisanego profilu sklepu. Szablon i edycja ręczna nadal działają bez klucza AI. Może analizować pomniejszone zdjęcia do doboru układu, jeśli zaznaczysz tę opcję. Nie generuje nowych zdjęć.
 - Parametry tekstowe i słownikowe są obsługiwane w formularzu. Nietypowe kategorie mogą wymagać rozszerzenia formularza (np. wartości zakresowe).
 - Wybór producenta obejmuje pierwsze 100 wpisów. Nowych producentów dodaje się w Allegro.
 - Testy jednostkowe i lokalne nie zastępują pierwszego testu OAuth i wystawienia oferty w Sandbox. Nie wykonano rzeczywistej autoryzacji, przesłania zdjęć ani publikacji na koncie użytkownika podczas przygotowania kodu.
@@ -86,7 +86,7 @@ Panel ma niebieską kolorystykę. Nowa sekcja **Generator opisów — ustawienia
 1. Utwórz klucz w [OpenAI API](https://platform.openai.com/api-keys) i skonfiguruj rozliczenia API. To osobna usługa od abonamentu ChatGPT; program nie loguje się do Twojej rozmowy ani nie pobiera jej historii.
 2. Wpisz klucz wyłącznie w lokalnym panelu i kliknij **Zapisz ustawienia AI**. Domyślny model: `gpt-4.1-mini`; można wpisać inny model obsługujący Responses API i Structured Outputs, dostępny na własnym koncie.
 3. W polu **Co wiemy o produkcie?** wpisz potwierdzone cechy. Początkowy wpis zawiera dane rolki ustalone przez właściciela. Dla innego produktu zastąp je jego własnymi danymi.
-4. Kliknij **Wygeneruj opis**. Do OpenAI trafiają tylko fakty z tego pola oraz zapisany profil sklepu. Zdjęcia, klucze Allegro i pozostałe ustawienia oferty nie są wysyłane.
+4. Kliknij **Wygeneruj opis**. Do OpenAI trafiają tylko fakty z tego pola oraz zapisany profil sklepu. Klucze Allegro i pozostałe ustawienia oferty nie są wysyłane. Opcjonalna analiza układu dodatkowo wysyła pomniejszone zdjęcia.
 5. Sprawdź propozycję i pytania o brakujące dane. **Zastosuj tytuł i opis** przenosi propozycję do edytora. **Cofnij zastosowanie** przywraca poprzedni tekst; **Odrzuć propozycję** zamyka podgląd.
 6. Zapisz poprawiony szkic w Allegro przed publikacją. Generator nie zmienia ceny, ilości, parametrów ani ustawień dostawy i nie publikuje oferty.
 
@@ -100,7 +100,7 @@ Dokumentacja: [Structured Outputs](https://developers.openai.com/api/docs/guides
 
 Aktualizacja: zamknij program, pobierz nowy ZIP, rozpakuj go i uruchom nowy `URUCHOM.bat`. Dotychczasowe ustawienia i szkic są poza folderem programu, więc pozostają dostępne.
 
-## Wersja 1.2 — Gemini Free Tier, foldery i wymagane parametry
+## Wersja 1.3 — Gemini Free Tier, foldery i wymagane parametry
 
 ### Darmowy limit Gemini
 
@@ -118,7 +118,7 @@ OpenAI pozostaje osobną opcją. Przy zmianie dostawcy trzeba podać właściwy 
 4. Dla nowego produktu podaj cenę, ilość i fakty. Żadne dane o poprzedniej rolce nie są automatycznie przypisywane nowemu produktowi. Wczytane pliki tekstowe sprawdź przed generowaniem.
 5. Generuj opis, sprawdź pytania, zastosuj propozycję, uzupełnij wymagane parametry i zapisz szkic w Allegro. Publikację uruchamiasz po sprawdzeniu przyciskiem **Opublikuj ofertę**.
 
-Aplikacja zapamiętuje szkic dla ścieżki podfolderu. Powrót do folderu przywraca zapisany szkic, a nie nadpisuje go nowymi plikami. Nowe zdjęcia można dodać w galerii. Wybór folderu jest jednorazowy na sesję przeglądarki; to import na żądanie, nie usługa stale obserwująca dysk. Sama lista wybranych plików nie jest wysyłana do usług AI. Generowanie opiera się na faktach tekstowych — zdjęcia trafiają do Allegro dopiero przy zapisie szkicu.
+Aplikacja zapamiętuje szkic dla ścieżki podfolderu. Powrót do folderu przywraca zapisany szkic, a nie nadpisuje go nowymi plikami. Nowe zdjęcia można dodać w galerii. Wybór folderu jest jednorazowy na sesję przeglądarki; to import na żądanie, nie usługa stale obserwująca dysk. Sama lista wybranych plików nie jest wysyłana do usług AI. Treść opiera się na faktach tekstowych. Opcjonalnie zdjęcia wysyłane są do AI do doboru ilustracji; do Allegro trafiają przy zapisie szkicu.
 
 Przykładowa zawartość `opis.txt` (uzupełnij prawdziwymi danymi):
 
@@ -142,3 +142,27 @@ Pobierane i łączone są teraz parametry oferty i parametry tworzenia produktu.
 Nie kopiujemy kodu `printefix` ani kompatybilności AN-MR18BA z tekstu służącego za wzór stylistyczny. Po pobraniu ustawień starej oferty pola parametrów wczytują się automatycznie.
 
 Opis obsługuje **pogrubienia** (zapis `**ważna fraza**`) i listy (wiersze zaczynające się od `- `). HTML jest escapowany. Testy: 19 testów, w tym obsługa Gemini, limitów, przełączania folderów i parametrów wymaganych. Testy API są symulowane, bez rzeczywistego generowania ani publikacji na koncie użytkownika.
+
+## Aktualizacja 1.3 — komunikaty, rozbudowane opisy i układ zdjęć
+
+### Czytelne odpowiedzi Allegro
+
+Po zapisie zobaczysz krótkie podsumowanie, oddzielnie błędy i uwagi. Pusta lista `errors` oznacza brak błędów w otrzymanej walidacji; uwagi nie są ukrywane ani traktowane jako potwierdzenie zgodności prawnej. Pełny JSON jest dostępny pod **Szczegóły odpowiedzi Allegro**. Znane uwagi o informacjach bezpieczeństwa oraz wysyłce zagranicznej mają krótkie polskie objaśnienia. Nieznane uwagi są pokazywane w oryginalnej treści.
+
+### Instrukcja stylu z przykładami
+
+Plik `style_guide.txt` zawiera bieżący standard i dwa przykłady redakcyjne: rolkę pilota oraz narzędzie do dysz. Jest przekazywany przy każdym generowaniu. To instrukcja i przykłady (few-shot), nie fine-tuning ani trwałe trenowanie modelu. Cel: zwykle 280–420 słów, 5–7 sekcji, wstęp o problemie klienta, korzyści, zastosowanie, montaż, ograniczenia i zawartość zestawu. Przy małej liczbie faktów wynik może być krótszy i zawierać pytania. Materiał PETG, modele pilotów i inne cechy z przykładów nie mogą być przenoszone do nowego produktu bez danych.
+
+Nowy standard redakcyjny działa również przy wcześniej zapisanym profilu. Możesz dodatkowo kliknąć **Wstaw uzgodniony styl NetStore** i zapisać ustawienia AI. Nagłówki nie zawierają widocznych `###`. Pogrubienia i listy są renderowane w podglądzie oraz opisie Allegro.
+
+### Zdjęcia i rozmieszczenie
+
+Opcja **Wyślij pomniejszone zdjęcia do wybranego AI, aby dobrać układ opisu** jest domyślnie włączona. Przed generowaniem możesz ją wyłączyć. Włączona wysyła maksymalnie 10 kopii zdjęć, pomniejszonych do 768 px, do skonfigurowanego dostawcy. Obowiązują jego zasady danych i limity; analiza zdjęć może zwiększać użycie API.
+
+Model przypisuje zdjęcia do sekcji na podstawie ich treści wizualnej. Fakty techniczne nadal muszą pochodzić z opisu produktu. Program usuwa powtórzenia i nieprawidłowe indeksy, rozmieszcza nieprzypisane ilustracje oraz pokazuje pozostałe zdjęcia w wierszach galerii po opisie. Wszystkie zdjęcia są uwzględnione raz w opisie. Każda sekcja ma listę **Zdjęcie 1, 2… / Sekcja bez zdjęcia**, więc można poprawić przypisanie ręcznie. Podgląd i wysyłany opis stosują te same przypisania. Allegro dostosowuje ostateczny wygląd do urządzenia kupującego.
+
+Bez analizy zdjęć program rozkłada je równomiernie na sekcje. Nie deklaruje, że rozpoznał ich zawartość. Kolejność głównej galerii oferty nadal ustalasz strzałkami przy miniaturach.
+
+### Weryfikacja
+
+24 testy Pythona oraz testy formatowania komunikatów (`node test_messages.cjs`). Testy obejmują przypisanie czterech zdjęć bez pominięć i powtórzeń, nieprawidłowe indeksy, nagłówki, strukturę żądań AI oraz zachowanie nieznanych ostrzeżeń. Wywołania AI są symulowane. Nie oceniono nowego opisu wygenerowanego na żywo na koncie użytkownika.

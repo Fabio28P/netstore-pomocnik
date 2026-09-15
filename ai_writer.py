@@ -1,5 +1,7 @@
 """Generate reviewable offer copy via OpenAI Responses API."""
 import json
+import re
+from pathlib import Path
 from urllib.request import Request, build_opener, HTTPRedirectHandler
 from urllib.error import HTTPError, URLError
 
@@ -36,9 +38,9 @@ def validate_result(result):
         if not isinstance(s,dict) or any(not isinstance(s.get(k),str) for k in ['title','text']) or not s['text'].strip() or len(s['text'])>6000:
             raise ValueError('Nieprawidłowa treść sekcji opisu.')
     if not isinstance(questions,list) or len(questions)>20 or any(not isinstance(q,str) or len(q)>1000 for q in questions): raise ValueError('Nieprawidłowa lista pytań.')
-    return {'name':name.strip(),'sections':[{'title':s['title'],'text':s['text']} for s in sections],'questions':questions}
+    return {'name':name.strip(),'sections':[dict(s, title=re.sub(r'^#+\s*','',s['title']).strip('* '), text=re.sub(r'^#{1,6}\s+(.+)$',r'**\1**',s['text'],flags=re.M)) for s in sections],'questions':questions}
 
-def generate(config, facts):
+def generate(config, facts, images=None):
     if not isinstance(facts,str) or not 15<=len(facts.strip())<=16000: raise ValueError('Wpisz dane produktu: od 15 do 16 000 znaków.')
     key=config.get('api_key','')
     if not key: raise ValueError('Najpierw wpisz klucz OpenAI API w ustawieniach generatora.')
@@ -46,6 +48,9 @@ def generate(config, facts):
         'instructions':INSTRUCTIONS,
         'input':json.dumps({'store_profile':config.get('profile',DEFAULT_PROFILE),'facts':facts},ensure_ascii=False),
         'text':{'format':{'type':'json_schema','name':'netstore_offer','strict':True,'schema':SCHEMA}}}
+    pictures=check_images(images)
+    if pictures:
+        payload['input']=[{'role':'user','content':[{'type':'input_text','text':payload['input']}]+[{'type':'input_image','image_url':img,'detail':'low'} for img in pictures]}]
     req=Request('https://api.openai.com/v1/responses',data=json.dumps(payload).encode(),method='POST',
         headers={'Authorization':'Bearer '+key,'Content-Type':'application/json','Accept':'application/json'})
     try:
@@ -65,7 +70,7 @@ def generate(config, facts):
             if c.get('type')=='output_text':parts.append(c.get('text',''))
     try: result=json.loads(''.join(parts))
     except (ValueError,TypeError): raise ValueError('Nie udało się odczytać opisu. Spróbuj ponownie.') from None
-    return validate_result(result)
+    return assign_images(validate_result(result),len(pictures))
 
 # v1.2: selectable provider; keys never fall back across providers.
 DEFAULT_PROFILE = ('NetStore — polskie oferty części zamiennych i produktów druku 3D. Styl profesjonalny, przystępny, '
@@ -79,9 +84,9 @@ INSTRUCTIONS = INSTRUCTIONS.replace('Zwykły tekst, bez Markdown, HTML i emoji.'
 INSTRUCTIONS += '\nZastosuj podany profil stylu. Nie kopiuj zgodności AN-MR18BA ani marki printefix z przykładów stylistycznych. W danych mogą być informacje o innych produktach; opisuj wyłącznie bieżący produkt.\n'
 _openai_generate = generate
 
-def generate(config, facts):
+def generate(config, facts, images=None):
     provider=config.get('provider','openai')
-    if provider=='openai': return _openai_generate(config,facts)
+    if provider=='openai': return _openai_generate(config,facts,images)
     if provider!='gemini': raise ValueError('Nieznany dostawca AI.')
     if not isinstance(facts,str) or not 15<=len(facts.strip())<=16000: raise ValueError('Uzupełnij potwierdzone dane produktu (15–16000 znaków).')
     key=config.get('api_key','')
@@ -92,6 +97,10 @@ def generate(config, facts):
     payload={'systemInstruction':{'parts':[{'text':INSTRUCTIONS}]},
         'contents':[{'role':'user','parts':[{'text':json.dumps({'store_profile':config.get('profile',DEFAULT_PROFILE),'facts':facts},ensure_ascii=False)}]}],
         'generationConfig':{'responseMimeType':'application/json','responseJsonSchema':SCHEMA,'maxOutputTokens':5000}}
+    pictures=check_images(images)
+    for img in pictures:
+        mime,encoded=img.split(';base64,',1)
+        payload['contents'][0]['parts'].append({'inlineData':{'mimeType':mime[5:],'data':encoded}})
     req=Request('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent',
         data=json.dumps(payload).encode(),method='POST',headers={'x-goog-api-key':key,'Content-Type':'application/json'})
     try:
@@ -105,4 +114,37 @@ def generate(config, facts):
     if not candidates or candidates[0].get('finishReason')!='STOP': raise ValueError('Gemini nie ukończyło opisu. Zmień dane lub spróbuj później.')
     try:result=json.loads(''.join(p.get('text','') for p in candidates[0].get('content',{}).get('parts',[]) if not p.get('thought')))
     except (ValueError,TypeError):raise ValueError('Nieprawidłowa odpowiedź Gemini.') from None
-    return validate_result(result)
+    return assign_images(validate_result(result),len(pictures))
+
+
+# Versioned editorial instructions apply even with a profile saved by an older app.
+DEFAULT_PROFILE = 'NetStore: rozbudowane opisy sprzedażowe, konkretny problem i korzyści, pogrubienia, listy, montaż, zgodność i zawartość zestawu. Bez powtarzania, pustych obietnic i wymyślania cech.'
+STYLE_GUIDE = Path(__file__).with_name('style_guide.txt').read_text('utf-8')
+INSTRUCTIONS = INSTRUCTIONS.replace('2–6 sekcji, zwykle 180–300 słów', '5–7 sekcji, zwykle 280–420 słów')
+INSTRUCTIONS += '\nAktualny standard redakcyjny (ma pierwszeństwo przed starszym profilem długości):\n'+STYLE_GUIDE
+INSTRUCTIONS += '\nDla każdej sekcji zwróć image_index: indeks zdjęcia od 0 w kolejności wejścia albo -1 bez zdjęcia. Dopasuj znaczenie zdjęcia do sekcji. Nie powtarzaj zdjęć. Rozłóż zdjęcia na cały opis, z odstępami; użyj wszystkich, jeżeli pasują. Bez zdjęć wszystkie indeksy -1. Nie pisz informacji ze zdjęć jako potwierdzonych cech produktu.\n'
+SCHEMA['properties']['sections']['items']['required'].append('image_index')
+SCHEMA['properties']['sections']['items']['properties']['image_index']={'type':'integer'}
+
+def check_images(images):
+    images=images or []
+    if not isinstance(images,list) or len(images)>10:raise ValueError('Maksymalnie 10 zdjęć dla AI.')
+    if sum(len(i) for i in images if isinstance(i,str))>12000000:raise ValueError('Zdjęcia dla AI są za duże.')
+    for img in images:
+        if not isinstance(img,str) or not re.fullmatch(r'data:image/(?:jpeg|png);base64,[A-Za-z0-9+/=]+',img):raise ValueError('Nieprawidłowe zdjęcie dla AI.')
+    return images
+
+def assign_images(result,count):
+    if not count:return result
+    used=set()
+    for s in result['sections']:
+        idx=s.get('image_index',-1)
+        if type(idx)!=int or not 0<=idx<count or idx in used:s['image_index']=-1
+        else:s['image_index']=idx;used.add(idx)
+    free=[i for i in range(count) if i not in used]
+    # Spread remaining pictures over unillustrated sections. Extras become gallery rows.
+    slots=[i for i,s in enumerate(result['sections']) if s.get('image_index',-1)==-1]
+    while free and slots:
+        pos=slots.pop(0 if len(free)>=len(slots) else len(slots)//2)
+        result['sections'][pos]['image_index']=free.pop(0)
+    return result

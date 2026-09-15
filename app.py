@@ -16,7 +16,7 @@ try: DATA.chmod(0o700)
 except OSError: pass
 ORIGIN = 'http://localhost:8000'
 CALLBACK = ORIGIN + '/allegro/callback'
-UA = 'NetStore-Pomocnik/1.2 (+https://github.com/Fabio28P/netstore-pomocnik)'
+UA = 'NetStore-Pomocnik/1.3 (+https://github.com/Fabio28P/netstore-pomocnik)'
 CSRF = secrets.token_urlsafe(32)
 OAUTH = {}
 SCOPES = 'allegro:api:sale:offers:read allegro:api:sale:offers:write allegro:api:sale:settings:read'
@@ -114,7 +114,7 @@ def parameter_definitions(category):
     return parameters.merge(offer,product)
 
 def description(sections, images):
-    result = []
+    result = []; used=set()
     for i, section in enumerate(sections):
         title, text = str(section.get('title', '')).strip(), str(section.get('text', '')).strip()
         if not text: continue
@@ -123,11 +123,15 @@ def description(sections, images):
         # Allegro supports p, h1, h2, ul, ol, li and b, not br.
         content = content.replace('<br>', '</p><p>')
         items = [{'type': 'TEXT', 'content': content}]
-        if i < len(images):
-            picture = {'type': 'IMAGE', 'url': images[i]}
+        idx=section.get('image_index', i if i<len(images) else -1)
+        if type(idx)==int and 0<=idx<len(images) and idx not in used:
+            used.add(idx)
+            picture = {'type': 'IMAGE', 'url': images[idx]}
             items = [picture] + items if i % 2 == 0 else items + [picture]
         result.append({'items': items})
     if not result: raise ValueError('Dodaj co najmniej jedną sekcję opisu.')
+    remaining=[{'type':'IMAGE','url':url} for idx,url in enumerate(images) if idx not in used]
+    for pos in range(0,len(remaining),2):result.append({'items':remaining[pos:pos+2]})
     return {'sections': result}
 
 def validate(d):
@@ -179,6 +183,7 @@ class Handler(BaseHTTPRequestHandler):
         p = urlparse(self.path)
         try:
             if p.path == '/': return self.send((ROOT / 'index.html').read_text('utf-8'), mime='text/html')
+            if p.path == '/messages.js': return self.send((ROOT / 'messages.js').read_text('utf-8'), mime='text/javascript')
             if p.path == '/app.js': return self.send((ROOT / 'app.js').read_text('utf-8'), mime='text/javascript')
             if p.path == '/state':
                 c = read('config', {})
@@ -222,7 +227,7 @@ class Handler(BaseHTTPRequestHandler):
             c = read('ai-config', {}); c.pop('api_key', None); save('ai-config', c)
             return {'message': 'Usunięto lokalny klucz OpenAI.'}
         if path == '/ai-generate':
-            return ai_writer.generate(ai_config(), d.get('facts', ''))
+            return ai_writer.generate(ai_config(), d.get('facts', ''), d.get('images', []))
         if path == '/configure':
             old = read('config', {})
             secret = str(d.get('client_secret', '')).strip() or old.get('client_secret', '')
