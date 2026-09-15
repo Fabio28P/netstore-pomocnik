@@ -1,6 +1,6 @@
 # NetStore Pomocnik
 
-Lokalna aplikacja do przygotowania i wystawienia oferty na własnym koncie Allegro. Wersja 1.0 zawiera panel w języku polskim, logowanie OAuth, edytor zdjęć i sekcji opisu, podgląd, zapis szkicu i publikację po zatwierdzeniu.
+Lokalna aplikacja do przygotowania i wystawienia oferty na własnym koncie Allegro. Wersja 1.1 zawiera panel w języku polskim, logowanie OAuth, edytor zdjęć i sekcji opisu, podgląd, zapis szkicu i publikację po zatwierdzeniu.
 
 ## Uruchomienie na Windows
 
@@ -29,7 +29,7 @@ Uprawnienia:
 User-Agent wysyłany przez program:
 
 ```text
-NetStore-Pomocnik/1.0 (+https://github.com/Fabio28P/netstore-pomocnik)
+NetStore-Pomocnik/1.1 (+https://github.com/Fabio28P/netstore-pomocnik)
 ```
 
 Sandbox wymaga osobnego konta i osobnej aplikacji zarejestrowanej w środowisku testowym. Klucze produkcyjne nie działają w Sandbox.
@@ -47,11 +47,11 @@ Panel startuje z edytowalnym opisem rolki do LG Magic MR21/MR22/MR23 zgodnie z d
 7. **Zapisz szkic w Allegro** wysyła ofertę ze statusem `INACTIVE`. Allegro może zwrócić brakujące parametry lub inne błędy — popraw je przed ponownym zapisem.
 8. Po zapisie i kontroli treści zaznacz potwierdzenie, kliknij **Opublikuj ofertę**, a następnie **Sprawdź status**. Dopiero status `ACTIVE` potwierdza publikację.
 
-## Zakres i ograniczenia wersji 1.0
+## Zakres i ograniczenia wersji 1.1
 
 - To działający kod lokalnej aplikacji, nie usługa hostowana i nie plik EXE. Wymaga Pythona.
 - Obsługuje jedną przygotowywaną ofertę. Nie zawiera jeszcze menedżera wielu produktów ani edycji aktywnych ofert.
-- Opisy korzystają z edytowalnego szablonu. Nie ma jeszcze automatycznego pisania przez AI, rozpoznawania produktu ze zdjęć ani generowania zdjęć. Aplikacja nie wymaga klucza do usługi AI.
+- Opisy można generować przez OpenAI API na podstawie wpisanych faktów i zapisanego profilu sklepu. Szablon i edycja ręczna nadal działają bez klucza AI. Ta wersja nie analizuje ani nie generuje zdjęć.
 - Parametry tekstowe i słownikowe są obsługiwane w formularzu. Nietypowe kategorie mogą wymagać rozszerzenia formularza (np. wartości zakresowe lub własne wartości słownikowe).
 - Wybór producenta obejmuje pierwsze 100 wpisów. Nowych producentów dodaje się w Allegro.
 - Testy jednostkowe i lokalne nie zastępują pierwszego testu OAuth i wystawienia oferty w Sandbox. Nie wykonano rzeczywistej autoryzacji, przesłania zdjęć ani publikacji na koncie użytkownika podczas przygotowania kodu.
@@ -78,3 +78,24 @@ Testy sprawdzają m.in. poprawność danych, niedopuszczenie do skopiowania star
 - [Wystawianie ofert](https://developer.allegro.pl/tutorials/jak-jednym-requestem-wystawic-oferte-powiazana-z-produktem-D7Kj9gw4xFA)
 - [Specyfikacja API](https://developer.allegro.pl/swagger.yaml)
 - [Zgłoszenia do NetStore Pomocnik](https://github.com/Fabio28P/netstore-pomocnik/issues)
+
+## Generator opisów — wersja 1.1
+
+Panel ma niebieską kolorystykę. Nowa sekcja **Generator opisów — ustawienia OpenAI** pozwala zapisać lokalny klucz API, nazwę modelu i profil sklepu.
+
+1. Utwórz klucz w [OpenAI API](https://platform.openai.com/api-keys) i skonfiguruj rozliczenia API. To osobna usługa od abonamentu ChatGPT; program nie loguje się do Twojej rozmowy ani nie pobiera jej historii.
+2. Wpisz klucz wyłącznie w lokalnym panelu i kliknij **Zapisz ustawienia AI**. Domyślny model: `gpt-4.1-mini`; można wpisać inny model obsługujący Responses API i Structured Outputs, dostępny na własnym koncie.
+3. W polu **Co wiemy o produkcie?** wpisz potwierdzone cechy. Początkowy wpis zawiera dane rolki ustalone przez właściciela. Dla innego produktu zastąp je jego własnymi danymi.
+4. Kliknij **Wygeneruj opis**. Do OpenAI trafiają tylko fakty z tego pola oraz zapisany profil sklepu. Zdjęcia, klucze Allegro i pozostałe ustawienia oferty nie są wysyłane.
+5. Sprawdź propozycję i pytania o brakujące dane. **Zastosuj tytuł i opis** przenosi propozycję do edytora. **Cofnij zastosowanie** przywraca poprzedni tekst; **Odrzuć propozycję** zamyka podgląd.
+6. Zapisz poprawiony szkic w Allegro przed publikacją. Generator nie zmienia ceny, ilości, parametrów ani ustawień dostawy i nie publikuje oferty.
+
+Profil NetStore zawiera ustalone zasady: konkretny język, krótkie sekcje, ważne informacje dla klienta, bez pustych haseł, emoji i powtarzania zalet. Dane o konkretnej rolce nie są stałą wiedzą o wszystkich produktach. Model jest instruowany, by nie wymyślać cech, lecz wynik zawsze wymaga sprawdzenia przez sprzedawcę.
+
+Klucz jest przechowywany jawnie w lokalnym pliku `ai-config.json` obok pozostałych danych programu, poza repozytorium. Można go usunąć przyciskiem **Usuń klucz AI**. Nie udostępniaj folderu danych programu. Żądania używają `store: false`; nie jest to obietnica braku wszelkich logów po stronie dostawcy — obowiązują zasady danych API.
+
+Testy generatora wykorzystują odpowiedzi symulowane: poprawny wynik, przerwane generowanie, walidację i brak klucza. Nie wykonano płatnego wywołania z kluczem użytkownika.
+
+Dokumentacja: [Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs), [model](https://developers.openai.com/api/docs/models/gpt-4.1-mini), [rozliczenia API](https://platform.openai.com/settings/organization/billing/overview).
+
+Aktualizacja: zamknij program, pobierz nowy ZIP, rozpakuj go i uruchom nowy `URUCHOM.bat`. Dotychczasowe ustawienia i szkic są poza folderem programu, więc pozostają dostępne.

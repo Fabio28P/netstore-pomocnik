@@ -1,4 +1,5 @@
 """NetStore Pomocnik — lokalny panel Allegro, Python 3.10+, bez zależności."""
+import ai_writer
 import base64, hashlib, html, json, os, re, secrets, time, webbrowser
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -14,7 +15,7 @@ try: DATA.chmod(0o700)
 except OSError: pass
 ORIGIN = 'http://localhost:8000'
 CALLBACK = ORIGIN + '/allegro/callback'
-UA = 'NetStore-Pomocnik/1.0 (+https://github.com/Fabio28P/netstore-pomocnik)'
+UA = 'NetStore-Pomocnik/1.1 (+https://github.com/Fabio28P/netstore-pomocnik)'
 CSRF = secrets.token_urlsafe(32)
 OAUTH = {}
 SCOPES = 'allegro:api:sale:offers:read allegro:api:sale:offers:write allegro:api:sale:settings:read'
@@ -156,7 +157,7 @@ class Handler(BaseHTTPRequestHandler):
             if p.path == '/state':
                 c = read('config', {})
                 return self.send({'csrf': CSRF, 'environment': env(), 'client_id': c.get('client_id', ''),
-                    'has_secret': bool(c.get('client_secret')), 'connected': bool(read('tokens-' + env())),
+                    'has_secret': bool(c.get('client_secret')), 'ai': {'has_key': bool(read('ai-config', {}).get('api_key')), 'model': read('ai-config', {}).get('model', 'gpt-4.1-mini'), 'profile': read('ai-config', {}).get('profile', ai_writer.DEFAULT_PROFILE)}, 'connected': bool(read('tokens-' + env())),
                     'draft': read('draft', None), 'saved_offer': read('offer-' + env(), {}), 'callback': CALLBACK})
             if p.path == '/allegro/callback':
                 q = parse_qs(p.query)
@@ -180,6 +181,20 @@ class Handler(BaseHTTPRequestHandler):
         except (ValueError, KeyError, TypeError) as e: self.send({'error': str(e)}, 400)
         except Exception: self.send({'error': 'Nie udało się wykonać operacji. Sprawdź dane i uruchom program ponownie.'}, 500)
     def action(self, path, d):
+        if path == '/ai-config':
+            old = read('ai-config', {})
+            key = str(d.get('api_key', '')).strip() or old.get('api_key', '')
+            model = str(d.get('model', 'gpt-4.1-mini')).strip()
+            profile = str(d.get('profile', ai_writer.DEFAULT_PROFILE)).strip()
+            if not re.fullmatch(r'[A-Za-z0-9._:-]{1,100}', model): raise ValueError('Nieprawidłowa nazwa modelu.')
+            if len(profile) > 8000 or len(key) > 1000: raise ValueError('Zbyt długie dane konfiguracji.')
+            save('ai-config', {'api_key': key, 'model': model, 'profile': profile})
+            return {'message': 'Zapisano ustawienia generatora na tym komputerze.'}
+        if path == '/ai-remove-key':
+            c = read('ai-config', {}); c.pop('api_key', None); save('ai-config', c)
+            return {'message': 'Usunięto lokalny klucz OpenAI.'}
+        if path == '/ai-generate':
+            return ai_writer.generate(read('ai-config', {}), d.get('facts', ''))
         if path == '/configure':
             old = read('config', {})
             secret = str(d.get('client_secret', '')).strip() or old.get('client_secret', '')
