@@ -1,5 +1,6 @@
 """NetStore Pomocnik — lokalny panel Allegro, Python 3.10+, bez zależności."""
 import ai_writer
+import parameters
 import base64, hashlib, html, json, os, re, secrets, time, webbrowser
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -15,7 +16,7 @@ try: DATA.chmod(0o700)
 except OSError: pass
 ORIGIN = 'http://localhost:8000'
 CALLBACK = ORIGIN + '/allegro/callback'
-UA = 'NetStore-Pomocnik/1.1 (+https://github.com/Fabio28P/netstore-pomocnik)'
+UA = 'NetStore-Pomocnik/1.2 (+https://github.com/Fabio28P/netstore-pomocnik)'
 CSRF = secrets.token_urlsafe(32)
 OAUTH = {}
 SCOPES = 'allegro:api:sale:offers:read allegro:api:sale:offers:write allegro:api:sale:settings:read'
@@ -87,13 +88,38 @@ def offer_id(value):
     if not match: raise ValueError('Podaj numer lub link do oferty.')
     return match.group(1)
 
+def rich_text(text):
+    def inline(value):
+        return re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', html.escape(value))
+    result=[]; in_list=False
+    for line in text.splitlines():
+        if line.startswith('- '):
+            if not in_list: result.append('<ul>'); in_list=True
+            result.append('<li>'+inline(line[2:])+'</li>')
+        else:
+            if in_list:result.append('</ul>');in_list=False
+            if line.strip():result.append('<p>'+inline(line)+'</p>')
+    if in_list:result.append('</ul>')
+    return ''.join(result)
+
+def ai_config():
+    c=read('ai-config', {})
+    if not c:return {'provider':'gemini','model':'gemini-2.5-flash-lite','profile':ai_writer.DEFAULT_PROFILE}
+    return c
+
+def parameter_definitions(category):
+    if not str(category).isdigit():raise ValueError('Wczytaj kategorię oferty.')
+    offer=api('/sale/categories/'+str(category)+'/parameters').get('parameters',[])
+    product=api('/sale/categories/'+str(category)+'/product-parameters').get('parameters',[])
+    return parameters.merge(offer,product)
+
 def description(sections, images):
     result = []
     for i, section in enumerate(sections):
         title, text = str(section.get('title', '')).strip(), str(section.get('text', '')).strip()
         if not text: continue
         content = ('<h2>' + html.escape(title) + '</h2>' if title else '')
-        content += ''.join('<p>' + html.escape(p).replace('\n', '<br>') + '</p>' for p in text.split('\n\n') if p.strip())
+        content += rich_text(text)
         # Allegro supports p, h1, h2, ul, ol, li and b, not br.
         content = content.replace('<br>', '</p><p>')
         items = [{'type': 'TEXT', 'content': content}]
@@ -157,7 +183,7 @@ class Handler(BaseHTTPRequestHandler):
             if p.path == '/state':
                 c = read('config', {})
                 return self.send({'csrf': CSRF, 'environment': env(), 'client_id': c.get('client_id', ''),
-                    'has_secret': bool(c.get('client_secret')), 'ai': {'has_key': bool(read('ai-config', {}).get('api_key')), 'model': read('ai-config', {}).get('model', 'gpt-4.1-mini'), 'profile': read('ai-config', {}).get('profile', ai_writer.DEFAULT_PROFILE)}, 'connected': bool(read('tokens-' + env())),
+                    'has_secret': bool(c.get('client_secret')), 'ai': {'provider': ai_config().get('provider','openai'), 'has_key': bool(ai_config().get('api_key')), 'model': ai_config().get('model', 'gpt-4.1-mini'), 'recommended_profile':ai_writer.DEFAULT_PROFILE, 'profile': ai_config().get('profile', ai_writer.DEFAULT_PROFILE)}, 'connected': bool(read('tokens-' + env())),
                     'draft': read('draft', None), 'saved_offer': read('offer-' + env(), {}), 'callback': CALLBACK})
             if p.path == '/allegro/callback':
                 q = parse_qs(p.query)
@@ -183,18 +209,20 @@ class Handler(BaseHTTPRequestHandler):
     def action(self, path, d):
         if path == '/ai-config':
             old = read('ai-config', {})
-            key = str(d.get('api_key', '')).strip() or old.get('api_key', '')
+            provider=d.get('provider','openai')
+            if provider not in ('openai','gemini'):raise ValueError('Wybierz dostawcę AI.')
+            key = str(d.get('api_key', '')).strip() or (old.get('api_key', '') if provider==old.get('provider','openai') else '')
             model = str(d.get('model', 'gpt-4.1-mini')).strip()
             profile = str(d.get('profile', ai_writer.DEFAULT_PROFILE)).strip()
             if not re.fullmatch(r'[A-Za-z0-9._:-]{1,100}', model): raise ValueError('Nieprawidłowa nazwa modelu.')
             if len(profile) > 8000 or len(key) > 1000: raise ValueError('Zbyt długie dane konfiguracji.')
-            save('ai-config', {'api_key': key, 'model': model, 'profile': profile})
+            save('ai-config', {'provider':provider, 'api_key': key, 'model': model, 'profile': profile})
             return {'message': 'Zapisano ustawienia generatora na tym komputerze.'}
         if path == '/ai-remove-key':
             c = read('ai-config', {}); c.pop('api_key', None); save('ai-config', c)
             return {'message': 'Usunięto lokalny klucz OpenAI.'}
         if path == '/ai-generate':
-            return ai_writer.generate(read('ai-config', {}), d.get('facts', ''))
+            return ai_writer.generate(ai_config(), d.get('facts', ''))
         if path == '/configure':
             old = read('config', {})
             secret = str(d.get('client_secret', '')).strip() or old.get('client_secret', '')
@@ -217,6 +245,20 @@ class Handler(BaseHTTPRequestHandler):
         if path == '/disconnect':
             (DATA / ('tokens-' + env() + '.json')).unlink(missing_ok=True)
             return {'message': 'Usunięto lokalne tokeny. Upoważnienie możesz odwołać także w ustawieniach Allegro.'}
+        if path == '/switch-folder':
+            folder=str(d.get('folder','')).strip()
+            if not folder or len(folder)>500:raise ValueError('Wybierz folder produktu.')
+            current=read('draft',{})
+            if current:
+                key=hashlib.sha256(str(current.get('folder','previous')).encode()).hexdigest()
+                save('folder-'+key, {'draft':current,'offers':{e:read('offer-'+e,{}) for e in ('production','sandbox')}})
+            key=hashlib.sha256(folder.encode()).hexdigest()
+            target=read('folder-'+key,{})
+            new=target.get('draft') or d['draft']
+            new['folder']=folder
+            save('draft',new)
+            for e in ('production','sandbox'):save('offer-'+e,target.get('offers',{}).get(e,{}))
+            return {'draft':new,'saved_offer':read('offer-'+env(),{})}
         if path == '/save':
             save('draft', d); return {'message': 'Zapisano szkic na komputerze.'}
         if path == '/template':
@@ -226,7 +268,7 @@ class Handler(BaseHTTPRequestHandler):
             return {'template': template, 'category': source.get('category', {}).get('id'), 'name': source.get('name')}
         if path == '/parameters':
             if not str(d['category']).isdigit(): raise ValueError('Nieprawidłowy numer kategorii.')
-            return api('/sale/categories/' + str(d['category']) + '/parameters')
+            return {'parameters':parameter_definitions(d['category'])}
         if path == '/products': return api('/sale/products?' + urlencode({'phrase': d['phrase'], 'category.id': d['category']}))
         if path == '/producers': return api('/sale/responsible-producers?limit=100')
         if path == '/status':
@@ -247,12 +289,14 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError('Treść zmieniła się od zapisu. Najpierw ponownie zapisz szkic w Allegro.')
                 result = api('/sale/product-offers/' + saved['id'], 'PATCH', {'publication': {'status': 'ACTIVE'}})
                 return {'id': saved['id'], 'publication': result.get('publication'), 'message': 'Zlecono publikację. Kliknij „Sprawdź status”, aby potwierdzić wynik.'}
-            draft = d
+            original_hash=hashlib.sha256(json.dumps(d,sort_keys=True).encode()).hexdigest()
+            draft = json.loads(json.dumps(d))
             validate(draft)
             if saved.get('pending'): raise ValueError('Poprzedni zapis ma nieznany wynik. Kliknij „Sprawdź status” przed kolejnym zapisem.')
             if saved.get('id'):
                 current = api('/sale/product-offers/' + saved['id'])
                 if current.get('publication', {}).get('status') != 'INACTIVE': raise ValueError('Ta oferta nie jest szkicem. Edycja aktywnej oferty jest zablokowana w tej wersji.')
+            parameters.normalize(draft, parameter_definitions(draft.get('category','')))
             uploaded = []
             for item in draft.get('images', []):
                 match = re.fullmatch(r'data:(image/(?:png|jpeg));base64,([A-Za-z0-9+/=\r\n]+)', item)
@@ -262,7 +306,7 @@ class Handler(BaseHTTPRequestHandler):
                 if not (raw.startswith(b'\x89PNG\r\n\x1a\n') or raw.startswith(b'\xff\xd8\xff')): raise ValueError('Plik nie jest zdjęciem PNG/JPG.')
                 uploaded.append(api('/sale/images', 'POST', raw, match.group(1))['location'])
             payload = build_payload(draft, read('template-' + env(), {}), uploaded)
-            fingerprint = hashlib.sha256(json.dumps(draft, sort_keys=True).encode()).hexdigest()
+            fingerprint = original_hash
             if saved.get('local_id') and saved['local_id'] != draft['local_id']: raise ValueError('Najpierw zakończ pracę z bieżącą ofertą.')
             state = {'local_id': draft['local_id'], 'pending': True, 'id': saved.get('id'), 'hash': fingerprint, 'confirmed': False}
             save('offer-' + env(), state)

@@ -66,3 +66,43 @@ def generate(config, facts):
     try: result=json.loads(''.join(parts))
     except (ValueError,TypeError): raise ValueError('Nie udało się odczytać opisu. Spróbuj ponownie.') from None
     return validate_result(result)
+
+# v1.2: selectable provider; keys never fall back across providers.
+DEFAULT_PROFILE = ('NetStore — polskie oferty części zamiennych i produktów druku 3D. Styl profesjonalny, przystępny, '
+    'lekko sprzedażowy: problem klienta → zastosowanie części → konkretne zalety → zgodność → montaż i ograniczenia → zawartość zestawu. '
+    'Wstęp może być krótkim pytaniem, jeśli wynika z danych. Bez powtarzania korzyści i obietnic bez pokrycia. '
+    'Ważne frazy można pogrubić **tak**, listy zapisuj jako - punkt. Co najwyżej jeden symbol przy ważnej uwadze. '
+    'Nie stosuj określeń idealny, niezawodny, najwyższa jakość ani precyzyjne dopasowanie bez potwierdzenia. '
+    'Zalety mają opisywać konkretne korzyści; nie dopisuj, że naprawa trwa kilka minut lub usuwa każdą usterkę.')
+INSTRUCTIONS = INSTRUCTIONS.replace('Zwykły tekst, bez Markdown, HTML i emoji.',
+    'Bez HTML. Dozwolone **pogrubienia** najważniejszych fraz oraz listy z - na początku wiersza. Nie pogrubiaj całych akapitów.')
+INSTRUCTIONS += '\nZastosuj podany profil stylu. Nie kopiuj zgodności AN-MR18BA ani marki printefix z przykładów stylistycznych. W danych mogą być informacje o innych produktach; opisuj wyłącznie bieżący produkt.\n'
+_openai_generate = generate
+
+def generate(config, facts):
+    provider=config.get('provider','openai')
+    if provider=='openai': return _openai_generate(config,facts)
+    if provider!='gemini': raise ValueError('Nieznany dostawca AI.')
+    if not isinstance(facts,str) or not 15<=len(facts.strip())<=16000: raise ValueError('Uzupełnij potwierdzone dane produktu (15–16000 znaków).')
+    key=config.get('api_key','')
+    if not key: raise ValueError('Dodaj klucz Gemini z Google AI Studio w ustawieniach generatora.')
+    import re
+    model=config.get('model','gemini-2.5-flash-lite')
+    if not re.fullmatch(r'[a-zA-Z0-9._-]+',model): raise ValueError('Nieprawidłowy model Gemini.')
+    payload={'systemInstruction':{'parts':[{'text':INSTRUCTIONS}]},
+        'contents':[{'role':'user','parts':[{'text':json.dumps({'store_profile':config.get('profile',DEFAULT_PROFILE),'facts':facts},ensure_ascii=False)}]}],
+        'generationConfig':{'responseMimeType':'application/json','responseJsonSchema':SCHEMA,'maxOutputTokens':5000}}
+    req=Request('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent',
+        data=json.dumps(payload).encode(),method='POST',headers={'x-goog-api-key':key,'Content-Type':'application/json'})
+    try:
+        with build_opener(NoRedirect).open(req,timeout=90) as r:response=json.load(r)
+    except HTTPError as e:
+        raise ValueError({400:'Gemini odrzuciło żądanie. Sprawdź klucz i model.',401:'Nieprawidłowy klucz Gemini.',
+            403:'Brak dostępu do Gemini API. Sprawdź klucz i dostępność usługi.',404:'Model Gemini jest niedostępny.',
+            429:'Wyczerpano limit Gemini. Spróbuj później. Nie przełączono na płatnego dostawcę.'}.get(e.code,'Gemini jest chwilowo niedostępne.')) from None
+    except (URLError,TimeoutError): raise ValueError('Brak odpowiedzi Gemini. Obecny opis nie został zmieniony.') from None
+    candidates=response.get('candidates',[])
+    if not candidates or candidates[0].get('finishReason')!='STOP': raise ValueError('Gemini nie ukończyło opisu. Zmień dane lub spróbuj później.')
+    try:result=json.loads(''.join(p.get('text','') for p in candidates[0].get('content',{}).get('parts',[]) if not p.get('thought')))
+    except (ValueError,TypeError):raise ValueError('Nieprawidłowa odpowiedź Gemini.') from None
+    return validate_result(result)
