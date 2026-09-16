@@ -47,6 +47,7 @@ action('run-queue',async()=>{
  await importFolder(row.folder);
  for(const n of document.querySelectorAll('input,select,textarea'))if(n.id!=='queue-enabled')n.disabled=true;
  if(!$('queue-enabled').checked)break;
+ if(draft.sections.length){row.prepared=true;row.message='Wczytano gotowy opis z folderu — otwórz i sprawdź szkic.';await call('/save',collect());done++;drawQueue();continue;}
  if(!draft.ai_facts.trim()){row.message='Uzupełnij fakty o produkcie lub dodaj opis.txt. Nie wygenerowano opisu.';drawQueue();continue;}
  const proposal=await call('/ai-generate',{facts:draft.ai_facts,images:$('ai-use-images').checked?await compactImages(draft.images):[]});
  draft.name=proposal.name;draft.sections=proposal.sections;draft.ai_questions=proposal.questions||[];

@@ -128,7 +128,7 @@ SCHEMA['properties']['sections']['items']['properties']['image_index']={'type':'
 
 def check_images(images):
     images=images or []
-    if not isinstance(images,list) or len(images)>10:raise ValueError('Maksymalnie 10 zdjęć dla AI.')
+    if not isinstance(images,list) or len(images)>16:raise ValueError('Maksymalnie 16 zdjęć dla AI.')
     if sum(len(i) for i in images if isinstance(i,str))>12000000:raise ValueError('Zdjęcia dla AI są za duże.')
     for img in images:
         if not isinstance(img,str) or not re.fullmatch(r'data:image/(?:jpeg|png);base64,[A-Za-z0-9+/=]+',img):raise ValueError('Nieprawidłowe zdjęcie dla AI.')

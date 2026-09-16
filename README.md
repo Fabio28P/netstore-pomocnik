@@ -1,6 +1,6 @@
 # NetStore Pomocnik
 
-Lokalna aplikacja do przygotowania i wystawienia oferty na własnym koncie Allegro. Wersja 1.4 zawiera panel w języku polskim, logowanie OAuth, edytor zdjęć i sekcji opisu, podgląd, zapis szkicu i publikację po zatwierdzeniu.
+Lokalna aplikacja do przygotowania i wystawienia oferty na własnym koncie Allegro. Wersja 1.5 zawiera panel w języku polskim, logowanie OAuth, edytor zdjęć i sekcji opisu, podgląd, zapis szkicu i publikację po zatwierdzeniu.
 
 ## Uruchomienie na Windows
 
@@ -29,7 +29,7 @@ Uprawnienia:
 User-Agent wysyłany przez program:
 
 ```text
-NetStore-Pomocnik/1.4 (+https://github.com/Fabio28P/netstore-pomocnik)
+NetStore-Pomocnik/1.5 (+https://github.com/Fabio28P/netstore-pomocnik)
 ```
 
 Sandbox wymaga osobnego konta i osobnej aplikacji zarejestrowanej w środowisku testowym. Klucze produkcyjne nie działają w Sandbox.
@@ -114,7 +114,7 @@ OpenAI pozostaje osobną opcją. Przy zmianie dostawcy trzeba podać właściwy 
 
 1. Kliknij wybór folderu w sekcji **Produkty z folderu** i wskaż `C:\Users\rybab\OneDrive\Pulpit\3d Sklep`.
 2. Wybierz podfolder produktu z listy, np. **Lg magic scroll MR23GN**, i kliknij **Wczytaj produkt z folderu**.
-3. Program odczyta PNG/JPG (maks. 10 zdjęć, 25 MB razem) oraz opcjonalny `opis.txt` lub `produkt.txt` z tego samego podfolderu. Inne TXT, PDF i 3MF są pomijane. Zdjęcia muszą być lokalnie dostępne — w OneDrive pobierz je na komputer.
+3. Program odczyta PNG/JPG (maks. 16 zdjęć, 160 MB razem) oraz opcjonalny `opis.txt` lub `produkt.txt` z tego samego podfolderu. Inne TXT, PDF i 3MF są pomijane. Zdjęcia muszą być lokalnie dostępne — w OneDrive pobierz je na komputer.
 4. Dla nowego produktu podaj cenę, ilość i fakty. Żadne dane o poprzedniej rolce nie są automatycznie przypisywane nowemu produktowi. Wczytane pliki tekstowe sprawdź przed generowaniem.
 5. Generuj opis, sprawdź pytania, zastosuj propozycję, uzupełnij wymagane parametry i zapisz szkic w Allegro. Publikację uruchamiasz po sprawdzeniu przyciskiem **Opublikuj ofertę**.
 
@@ -185,3 +185,14 @@ Kategorię wybierzesz, wpisując nazwę produktu lub przeglądając działy Alle
 Przełącznik wyłącza kolejne generowania; bieżące zapytanie może jeszcze zakończyć się i zapisać wynik. Kolejka działa przy otwartym panelu, po ręcznym wybraniu folderu — nie obserwuje stale dysku. Zamknięcie panelu nie publikuje niczego. Gotowe lokalne szkice przetrwają ponowne uruchomienie; po przeniesieniu lub zmianie nazwy folderu należy ponownie sprawdzić powiązanie. Błąd sieci lub AI zatrzymuje partię. Generowanie podlega limitom i opłatom wybranego dostawcy. Nie kopiujemy faktów między produktami.
 
 Testy kolejki sprawdzają stronicowanie listy ofert, identyfikatory, niejednoznaczność, błędy sieci oraz rozdzielenie środowisk. Próba utworzenia nowej oferty z ręcznie powiązanego folderu jest blokowana.
+
+### Szybkie wystawianie i import 16 zdjęć (1.5)
+
+Usunięto lokalny limit 10 zdjęć i ograniczenie sumy plików do 25 MB. Import przyjmuje do 16 JPG/PNG po 10 MB każde, bez zmiany oryginałów. Limit żądania lokalnego serwera uwzględnia narzut base64. Błędny plik lub za duża liczba zdjęć nie dodaje części plików do galerii. AI otrzymuje pomniejszone kopie do 16 zdjęć. Duże foldery nadal wymagają czasu i pamięci na odczyt oraz pierwszy upload.
+
+1. Raz pobierz cennik, zwroty i reklamacje ze swojej oferty wzorcowej. Wybierz kategorię, producenta i ilość. Zapisz lokalny szablon, np. dla jednej rodziny produktów. Cena jest zapisywana tylko po zaznaczeniu opcji. Szablony są oddzielne dla Sandbox i produkcji.
+2. Wybierz szablon i wczytaj nowy folder. Szablon przenosi kategorię, producenta, ilość i warunki sprzedaży. Nie kopiuje zdjęć, modelu, kodu części, identyfikatora produktu, informacji o bezpieczeństwie ani miejsca wysyłki. Istniejący szkic zachowuje swoje dane; możesz jawnie zastosować inny szablon.
+3. W sekcji opisu rozwiń „Mam gotowy opis z ChatGPT” i wklej tekst. Alternatywnie dodaj do nowego folderu plik gotowy-opis.txt lub gotowy-opis.md. Nagłówki Markdown, nagłówki zakończone dwukropkiem, pogrubienia i listy tworzą czytelne sekcje. Samodzielne linki do zdjęć są pomijane; zdjęcia pobieramy z galerii. Gotowy tekst nie jest wysyłany do AI. Kolejka również korzysta z gotowego opisu, jeśli jest dostępny, zamiast generować drugi.
+4. Kliknij „Sprawdź dane i przygotuj szkic w Allegro”. Program pokaże brakujące dane lub zapisze szkic. Po sprawdzeniu opisu, parametrów i uwag Allegro potwierdź publikację. Nie jest to automatyczna publikacja bez kontroli.
+
+Udane przesłania zdjęć są zapamiętywane lokalnie według skrótu zawartości i środowiska. Kolejny zapis nie wysyła ponownie tych samych plików. Błąd przesyłania nie trafia do pamięci udanych uploadów.

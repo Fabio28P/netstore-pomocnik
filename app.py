@@ -17,7 +17,7 @@ try: DATA.chmod(0o700)
 except OSError: pass
 ORIGIN = 'http://localhost:8000'
 CALLBACK = ORIGIN + '/allegro/callback'
-UA = 'NetStore-Pomocnik/1.4 (+https://github.com/Fabio28P/netstore-pomocnik)'
+UA = 'NetStore-Pomocnik/1.5 (+https://github.com/Fabio28P/netstore-pomocnik)'
 CSRF = secrets.token_urlsafe(32)
 OAUTH = {}
 SCOPES = 'allegro:api:sale:offers:read allegro:api:sale:offers:write allegro:api:sale:settings:read'
@@ -159,6 +159,7 @@ def shipping_location(d):
 def build_payload(d, template, images):
     name, price, stock = validate(d)
     if not images: raise ValueError('Dodaj zdjęcie produktu.')
+    if len(images)>16: raise ValueError('Maksymalnie 16 zdjęć produktu.')
     category = str(d.get('category', '')).strip()
     if not category.isdigit(): raise ValueError('Wczytaj kategorię ze wzoru lub wpisz jej numer.')
     product = {'id': d['product_id']} if d.get('product_id') else {
@@ -197,13 +198,14 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if p.path == '/': return self.send((ROOT / 'index.html').read_text('utf-8'), mime='text/html')
             if p.path == '/messages.js': return self.send((ROOT / 'messages.js').read_text('utf-8'), mime='text/javascript')
+            if p.path == '/quick.js': return self.send((ROOT / 'quick.js').read_text('utf-8'), mime='text/javascript')
             if p.path == '/workflow.js': return self.send((ROOT / 'workflow.js').read_text('utf-8'), mime='text/javascript')
             if p.path == '/app.js': return self.send((ROOT / 'app.js').read_text('utf-8'), mime='text/javascript')
             if p.path == '/state':
                 c = read('config', {})
                 return self.send({'csrf': CSRF, 'environment': env(), 'client_id': c.get('client_id', ''),
                     'has_secret': bool(c.get('client_secret')), 'ai': {'provider': ai_config().get('provider','openai'), 'has_key': bool(ai_config().get('api_key')), 'model': ai_config().get('model', 'gpt-4.1-mini'), 'recommended_profile':ai_writer.DEFAULT_PROFILE, 'profile': ai_config().get('profile', ai_writer.DEFAULT_PROFILE)}, 'connected': bool(read('tokens-' + env())),
-                    'shipping_default': read('shipping-default', {}), 'draft': read('draft', None), 'saved_offer': read('offer-' + env(), {}), 'callback': CALLBACK})
+                    'preset_names': sorted(read('presets-'+env(),{})), 'shipping_default': read('shipping-default', {}), 'draft': read('draft', None), 'saved_offer': read('offer-' + env(), {}), 'callback': CALLBACK})
             if p.path == '/allegro/callback':
                 q = parse_qs(p.query)
                 state = q.get('state', [''])[0]
@@ -220,12 +222,45 @@ class Handler(BaseHTTPRequestHandler):
             return self.send({'error': 'Odśwież stronę programu.'}, 403)
         try:
             length = int(self.headers.get('Content-Length', '0'))
-            if not 0 < length <= 45_000_000: raise ValueError('Za duże żądanie (limit 45 MB).')
+            if not 0 < length <= 225_000_000: raise ValueError('Za duże żądanie (limit 225 MB).')
             d = json.loads(self.rfile.read(length))
             self.send(self.action(urlparse(self.path).path, d))
         except (ValueError, KeyError, TypeError) as e: self.send({'error': str(e)}, 400)
         except Exception: self.send({'error': 'Nie udało się wykonać operacji. Sprawdź dane i uruchom program ponownie.'}, 500)
     def action(self, path, d):
+        if path == '/presets-list':
+            return {'names':sorted(read('presets-'+env(),{}))}
+        if path == '/presets-save':
+            name=str(d.get('name','')).strip()
+            if not 1<=len(name)<=80:raise ValueError('Podaj nazwę szablonu (maks. 80 znaków).')
+            source=d.get('draft',{})
+            fields={k:source[k] for k in ('category','category_name','producer_id','stock','reference') if source.get(k)}
+            if d.get('include_price'):fields['price']=source.get('price','')
+            settings=source.get('sale_settings') or read('template-'+env(),{})
+            fields['sale_settings']={k:settings[k] for k in ('delivery','afterSalesServices','payments') if settings.get(k)}
+            presets=read('presets-'+env(),{})
+            if name not in presets and len(presets)>=50:raise ValueError('Możesz zapisać do 50 szablonów.')
+            presets[name]=fields;save('presets-'+env(),presets)
+            return {'message':'Zapisano szablon lokalnie. Dane produktu i zdjęcia nie zostały skopiowane.'}
+        if path == '/presets-get':
+            fields=read('presets-'+env(),{}).get(str(d.get('name','')))
+            if fields is None:raise ValueError('Wybierz zapisany szablon.')
+            return {'fields':fields}
+        if path == '/preflight':
+            issues=[]
+            try:validate(d)
+            except ValueError as e:issues.append(str(e))
+            try:shipping_location(d)
+            except ValueError as e:issues.append(str(e))
+            if not 1<=len(d.get('images',[]))<=16:issues.append('Dodaj od 1 do 16 zdjęć.')
+            if not any(s.get('text','').strip() for s in d.get('sections',[])):issues.append('Dodaj gotowy opis lub wygeneruj opis produktu.')
+            settings=d.get('sale_settings') or read('template-'+env(),{})
+            if not settings.get('delivery',{}).get('shippingRates',{}).get('id'):issues.append('Pobierz ustawienia dostawy ze wzoru lub zastosuj kompletny szablon.')
+            if not str(d.get('category','')).isdigit():issues.append('Wybierz kategorię produktu.')
+            else:
+                try:parameters.normalize(json.loads(json.dumps(d)),parameter_definitions(d['category']))
+                except ValueError as e:issues.append(str(e))
+            return {'issues':issues}
         if path == '/categories-search':
             phrase=str(d.get('name','')).strip()
             if not 2<=len(phrase)<=150:raise ValueError('Wpisz nazwę produktu (2–150 znaków).')
@@ -341,19 +376,25 @@ class Handler(BaseHTTPRequestHandler):
             validate(draft)
             shipping_location(draft)
             if saved.get('pending'): raise ValueError('Poprzedni zapis ma nieznany wynik. Kliknij „Sprawdź status” przed kolejnym zapisem.')
+            if not 1<=len(draft.get('images',[]))<=16:raise ValueError('Dodaj od 1 do 16 zdjęć produktu.')
             if saved.get('id'):
                 current = api('/sale/product-offers/' + saved['id'])
                 if current.get('publication', {}).get('status') != 'INACTIVE': raise ValueError('Ta oferta nie jest szkicem. Edycja aktywnej oferty jest zablokowana w tej wersji.')
             parameters.normalize(draft, parameter_definitions(draft.get('category','')))
-            uploaded = []
+            uploaded = []; image_cache=read('image-cache-'+env(),{})
             for item in draft.get('images', []):
                 match = re.fullmatch(r'data:(image/(?:png|jpeg));base64,([A-Za-z0-9+/=\r\n]+)', item)
                 if not match: raise ValueError('Obsługiwane są zdjęcia PNG i JPG.')
                 raw = base64.b64decode(match.group(2), validate=True)
                 if len(raw) > 10_000_000: raise ValueError('Zdjęcie przekracza 10 MB.')
                 if not (raw.startswith(b'\x89PNG\r\n\x1a\n') or raw.startswith(b'\xff\xd8\xff')): raise ValueError('Plik nie jest zdjęciem PNG/JPG.')
-                uploaded.append(api('/sale/images', 'POST', raw, match.group(1))['location'])
-            payload = build_payload(draft, read('template-' + env(), {}), uploaded)
+                digest=hashlib.sha256(raw).hexdigest()
+                if digest not in image_cache:
+                    image_cache[digest]=api('/sale/images', 'POST', raw, match.group(1))['location']
+                    if len(image_cache)>1000:image_cache.pop(next(iter(image_cache)))
+                    save('image-cache-'+env(),image_cache)
+                uploaded.append(image_cache[digest])
+            payload = build_payload(draft, draft.get('sale_settings') or read('template-' + env(), {}), uploaded)
             fingerprint = original_hash
             if saved.get('local_id') and saved['local_id'] != draft['local_id']: raise ValueError('Najpierw zakończ pracę z bieżącą ofertą.')
             state = {'local_id': draft['local_id'], 'pending': True, 'id': saved.get('id'), 'hash': fingerprint, 'confirmed': False}
