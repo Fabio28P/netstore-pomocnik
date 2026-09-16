@@ -17,7 +17,7 @@ try: DATA.chmod(0o700)
 except OSError: pass
 ORIGIN = 'http://localhost:8000'
 CALLBACK = ORIGIN + '/allegro/callback'
-UA = 'NetStore-Pomocnik/1.5 (+https://github.com/Fabio28P/netstore-pomocnik)'
+UA = 'NetStore-Pomocnik/1.6 (+https://github.com/Fabio28P/netstore-pomocnik)'
 CSRF = secrets.token_urlsafe(32)
 OAUTH = {}
 SCOPES = 'allegro:api:sale:offers:read allegro:api:sale:offers:write allegro:api:sale:settings:read'
@@ -275,6 +275,14 @@ class Handler(BaseHTTPRequestHandler):
             return api('/sale/categories/'+category)
         if path == '/queue-scan':
             return workflow.scan(d.get('folders',[]),api,read,env())
+        if path == '/queue-choice':
+            folder=d.get('folder');workflow.key(folder)
+            new=bool(d.get('is_new'))
+            if new:
+                row=workflow.scan([folder],api,read,env())['rows'][0]
+                if row['status']!='unlinked':raise ValueError('Ten folder ma ofertę lub niepewny status. Odśwież listę.')
+            choices=read('queue-choices-'+env(),{});choices[folder]=new;save('queue-choices-'+env(),choices)
+            return {'message':'Zapisano wybór dla folderu.'}
         if path == '/queue-link':
             folder=d.get('folder');workflow.key(folder)
             identifier=offer_id(d.get('id',''))
@@ -333,7 +341,7 @@ class Handler(BaseHTTPRequestHandler):
                 save('folder-'+key, {'draft':current,'offers':{e:read('offer-'+e,{}) for e in ('production','sandbox')}})
             key=hashlib.sha256(folder.encode()).hexdigest()
             target=read('folder-'+key,{})
-            new=target.get('draft') or d['draft']
+            new=workflow.merge_import(target.get('draft'), d['draft'])
             new['folder']=folder
             save('draft',new)
             for e in ('production','sandbox'):save('offer-'+e,target.get('offers',{}).get(e,{}))

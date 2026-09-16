@@ -1,6 +1,6 @@
 # NetStore Pomocnik
 
-Lokalna aplikacja do przygotowania i wystawienia oferty na własnym koncie Allegro. Wersja 1.5 zawiera panel w języku polskim, logowanie OAuth, edytor zdjęć i sekcji opisu, podgląd, zapis szkicu i publikację po zatwierdzeniu.
+Lokalna aplikacja do przygotowania i wystawienia oferty na własnym koncie Allegro. Wersja 1.6 zawiera panel w języku polskim, logowanie OAuth, edytor zdjęć i sekcji opisu, podgląd, zapis szkicu i publikację po zatwierdzeniu.
 
 ## Uruchomienie na Windows
 
@@ -29,7 +29,7 @@ Uprawnienia:
 User-Agent wysyłany przez program:
 
 ```text
-NetStore-Pomocnik/1.5 (+https://github.com/Fabio28P/netstore-pomocnik)
+NetStore-Pomocnik/1.6 (+https://github.com/Fabio28P/netstore-pomocnik)
 ```
 
 Sandbox wymaga osobnego konta i osobnej aplikacji zarejestrowanej w środowisku testowym. Klucze produkcyjne nie działają w Sandbox.
@@ -112,7 +112,7 @@ OpenAI pozostaje osobną opcją. Przy zmianie dostawcy trzeba podać właściwy 
 
 ### Folder „3d Sklep”
 
-1. Kliknij wybór folderu w sekcji **Produkty z folderu** i wskaż `C:\Users\rybab\OneDrive\Pulpit\3d Sklep`.
+1. Kliknij wybór folderu w sekcji **Produkty z folderu** i wskaż swój folder produktów (np. `3d Sklep`).
 2. Wybierz podfolder produktu z listy, np. **Lg magic scroll MR23GN**, i kliknij **Wczytaj produkt z folderu**.
 3. Program odczyta PNG/JPG (maks. 16 zdjęć, 160 MB razem) oraz opcjonalny `opis.txt` lub `produkt.txt` z tego samego podfolderu. Inne TXT, PDF i 3MF są pomijane. Zdjęcia muszą być lokalnie dostępne — w OneDrive pobierz je na komputer.
 4. Dla nowego produktu podaj cenę, ilość i fakty. Żadne dane o poprzedniej rolce nie są automatycznie przypisywane nowemu produktowi. Wczytane pliki tekstowe sprawdź przed generowaniem.
@@ -196,3 +196,11 @@ Usunięto lokalny limit 10 zdjęć i ograniczenie sumy plików do 25 MB. Import 
 4. Kliknij „Sprawdź dane i przygotuj szkic w Allegro”. Program pokaże brakujące dane lub zapisze szkic. Po sprawdzeniu opisu, parametrów i uwag Allegro potwierdź publikację. Nie jest to automatyczna publikacja bez kontroli.
 
 Udane przesłania zdjęć są zapamiętywane lokalnie według skrótu zawartości i środowiska. Kolejny zapis nie wysyła ponownie tych samych plików. Błąd przesyłania nie trafia do pamięci udanych uploadów.
+
+### Lista produktów i odświeżanie opisu (1.6)
+
+Naprawiono przywracanie starego pustego szkicu, które pomijało treść nowo dodanego opis.txt. Ponowne wczytanie uzupełnia brakujące fakty i gotowy opis, zachowując identyfikator oferty, cenę, zdjęcia i istniejące ręczne poprawki. Rozpoznajemy opis.txt, produkt.txt, wersje Markdown i podwójne rozszerzenie .txt.txt.
+
+Lista produktów pojawia się od razu po wyborze folderu. Po kliknięciu „Sprawdź foldery na Allegro” przy niepowiązanym produkcie wybierz z listy „Nowy produkt” albo wyszukaj swoją aukcję po tytule/numerze. Wybór zapisuje się od razu lokalnie i jest osobny dla środowisk. Nazwa folderu może być całkowicie inna niż tytuł oferty. Powiązanie jest oparte na identyfikatorze Allegro. Przy nowym produkcie przycisk „Przygotuj ten produkt” uruchamia przygotowanie tylko tej pozycji; publikacja pozostaje oddzielnie zatwierdzana.
+
+Jeżeli dodałeś lub zmieniłeś plik już po wybraniu folderu w przeglądarce, wybierz folder ponownie. Program nie może sam odświeżyć listy plików na Twoim dysku. Możesz też użyć przycisku „Dodaj opis z pliku” bezpośrednio przy produkcie. Plik opis.txt uzupełnia fakty dla AI; plik gotowy-opis.txt/.md wczytuje gotowe sekcje bez generowania. Zastąpienie istniejącej treści tym przyciskiem wymaga potwierdzenia. Komunikat importu pokazuje nazwę i liczbę znaków odczytanego pliku.

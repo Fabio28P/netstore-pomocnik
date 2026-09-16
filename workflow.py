@@ -18,7 +18,7 @@ def inventory(api):
 def scan(folders,api,read,environment):
     if not isinstance(folders,list) or len(folders)>200:raise ValueError('Wybierz maksymalnie 200 folderów.')
     offers=inventory(api); current=read('draft',{}) or {}; links=read('queue-links-'+environment,{})
-    rows=[]
+    rows=[]; choices=read('queue-choices-'+environment,{})
     for folder in folders:
         stored=read(key(folder),{})
         draft=stored.get('draft',{})
@@ -33,5 +33,17 @@ def scan(folders,api,read,environment):
         elif identifier or saved.get('pending'):status='unknown'
         else:status='unlinked'
         rows.append({'folder':folder,'status':status,'offers':[{'id':o['id'],'name':o.get('name','')} for o in matches],
-                     'prepared':bool(draft.get('sections'))})
+                     'isNew':bool(choices.get(folder)) if status=='unlinked' else False, 'has_facts':bool(str(draft.get('ai_facts','')).strip()), 'prepared':bool(draft.get('sections'))})
     return {'rows':rows,'offers':[{'id':o['id'],'name':o.get('name',''),'status':o.get('publication',{}).get('status','UNKNOWN')} for o in offers]}
+
+def merge_import(stored, incoming):
+    """Fill missing input from newly selected files without losing offer identity or edits."""
+    if not stored:return incoming
+    merged=dict(stored)
+    if not str(merged.get('ai_facts','')).strip() and str(incoming.get('ai_facts','')).strip():
+        merged['ai_facts']=incoming['ai_facts']
+    if not merged.get('sections') and incoming.get('sections'):
+        merged['sections']=incoming['sections']
+    if not merged.get('images') and incoming.get('images'):
+        merged['images']=incoming['images']
+    return merged
